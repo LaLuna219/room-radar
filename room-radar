@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart-Search Floor Manager</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eef2ef;--ink:#17262b;--mute:#5d6e72;--card:#fff;--line:#c9d3d0;--free:#0d8a66;--freebg:#d9f2e8;--busy:#8a4b3f;--busybg:#f1dfda}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111a1d;--ink:#e6efec;--mute:#93a5a9;--card:#1a272b;--line:#2f4146;--free:#4fd3a5;--freebg:#15382f;--busy:#e29a8a;--busybg:#3a2622}}
+:root[data-theme="dark"]{--bg:#111a1d;--ink:#e6efec;--mute:#93a5a9;--card:#1a272b;--line:#2f4146;--free:#4fd3a5;--freebg:#15382f;--busy:#e29a8a;--busybg:#3a2622}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Trebuchet MS",system-ui,sans-serif;max-width:760px;margin-inline:auto;padding:16px}
+h1{font:700 26px/1.1 Georgia,serif;margin:4px 0 4px}
+p.sub{color:var(--mute);margin:0 0 14px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
+.ask{display:flex;gap:8px}
+input,select,button{font:inherit;color:var(--ink)}
+input[type=text]{flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+button{padding:10px 14px;border:0;border-radius:8px;background:var(--free);color:#fff;font-weight:700;cursor:pointer}
+:root:not([data-theme="light"]) button{color:#06231a}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--free);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;font-size:14px}
+.row select,.row input{padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.chip{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--mute);font-weight:400;cursor:pointer}
+.chip.on{background:var(--free);color:#fff;border-color:var(--free)}
+#ans{margin-top:10px;font-size:15px}
+.floor{margin-bottom:14px}
+.floor h2{font:700 17px Georgia,serif;margin:0 0 6px;display:flex;justify-content:space-between}
+.floor h2 span{font:400 13px system-ui;color:var(--mute)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.room{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+.room b{display:block;font-size:15px}
+.room.free{background:var(--freebg);border-color:var(--free)}
+.room.busy{background:repeating-linear-gradient(135deg,var(--busybg),var(--busybg) 6px,transparent 6px,transparent 12px);color:var(--busy)}
+.room.hit{box-shadow:0 0 0 3px var(--free)}
+.room small{display:block;color:var(--mute)}
+.note{font-size:12.5px;color:var(--mute)}
+.scene{height:420px;perspective:1100px;overflow:hidden;position:relative}
+#stack{position:absolute;left:50%;top:58%;width:300px;height:64px;margin:-32px 0 0 -150px;transform-style:preserve-3d;transform:rotateX(58deg) rotateZ(-32deg)}
+.lvl{position:absolute;inset:0;display:flex;gap:6px;padding:6px 6px 6px 28px;background:var(--card);border:2px solid var(--line);border-radius:6px;box-shadow:0 10px 0 var(--line)}
+.lvl em{position:absolute;left:6px;top:20px;font:700 12px Georgia,serif;color:var(--mute)}
+.lvl button.t{flex:1;padding:0;border-radius:4px;font-size:11px;font-weight:700;border:2px solid var(--free);background:var(--freebg);color:var(--ink)}
+.lvl button.t.busy{border-color:var(--busy);background:var(--busybg)}
+.lvl button.t.sel{outline:3px solid var(--ink)}
+.room{cursor:pointer}.room.sel{outline:3px solid var(--ink)}
+#cd{font:700 40px/1.1 Georgia,serif;font-variant-numeric:tabular-nums;margin:4px 0}
+a.squad{display:inline-block;margin-top:8px;padding:10px 14px;border-radius:8px;background:#1f9d55;color:#fff;font-weight:700;text-decoration:none}
+.al{padding:10px;border-radius:8px;background:var(--freebg);border:1px solid var(--free);margin-bottom:8px;font-weight:700}.al[hidden]{display:none}
+</style></head><body>
+<h1>Floor Manager</h1>
+<p class="sub">Find an empty room, right now or for the next few hours.</p>
+
+<div class="card">
+  <div class="ask"><input id="q" type="text" placeholder="I need an AC room on the ground floor for the next 2 hours" aria-label="Describe the room you need"><button id="go">Find rooms</button></div>
+  <div id="ans" aria-live="polite"></div>
+  <div class="row">
+    <label>Day <select id="day"></select></label>
+    <label>Time <input id="time" type="time"></label>
+    <label>Floor <select id="fl"><option value="">Any</option></select></label>
+    <label>Free for <select id="dur"><option value="0">now</option><option value="60">1 h</option><option value="120">2 h</option><option value="180">3 h</option></select></label>
+  </div>
+</div>
+<div class="card"><div class="scene"><div id="stack"></div></div>
+<p class="note">3D building, ground floor at the bottom. Green rooms are free for the chosen time; hatched rooms are in class. Tap a room.</p></div>
+<div id="al" class="al" role="alert" hidden></div>
+<div class="card" id="det"><p class="note">Tap a room to see its live countdown.</p></div>
+<div id="out"></div>
+<p class="note">Rooms and slots come from the 8 uploaded 2026–27 timetables. Classes run Mon–Fri, 9:00–16:50. Floors are read from room numbers (1xx = ground). AC status is not in the timetables: tap “AC?” on a room to mark it.</p>
+
+<script>
+const T={ // room -> [Mon..Fri] occupied periods
+"IST 519":["1234","1234","1234","1234","1234"],
+"IST 518":["12346789","12346789","12346789","12346789","12346789"],
+"IST 602":["1234","1234","123","1234","1234"],
+"IST 227":["1234","1234","1234","124","123"],
+"IST 225":["134","1234","134","1234","1234"],
+"IST 416":["1234","1234","1234","1234","1234"],
+"IST 411":["6789","6789","6789","6789","6789"],
+"Lab 108":["12","67","289","123","6789"],
+"Lab 107":["346789","1267","","6789","89"],
+"Lab 309":["12346789","12","89","126789","67"],
+"G-625":["67","127","189","","6"],
+"G-602":["67","6","7","","89"],
+"H-TB-106":["","6789","67","34","1"],
+"G-401":["","","1","12",""]};
+const PS=[540,590,650,700,750,800,850,910,960],PE=[590,640,700,750,800,850,900,960,1010];
+const FN=["Ground floor","First floor","Second floor","Third floor","Fourth floor","Fifth floor"];
+const DN=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const ac={};
+const flr=n=>{const m=n.match(/(\d)\d\d/);return m?+m[1]-1:0};
+const hm=m=>{m=Math.round(m);return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")};
+function busyUntil(r,d,s,e){ // first period conflict start, or null
+  const o=(T[r][d-1]||"");
+  for(const c of o){const p=+c-1;if(PS[p]<e&&PE[p]>s)return Math.max(PS[p],s)}
+  return null}
+const $=id=>document.getElementById(id);
+DN.forEach((n,i)=>$("day").add(new Option(n,i)));
+[...new Set(Object.keys(T).map(flr))].sort().forEach(f=>$("fl").add(new Option(FN[f]||"Floor "+f,f)));
+const now=new Date();$("day").value=now.getDay();$("time").value=hm(now.getHours()*60+now.getMinutes());
+let hits=new Set();
+function ctx(){const[h,m]=$("time").value.split(":").map(Number);return{d:+$("day").value,s:h*60+m,dur:+$("dur").value,fl:$("fl").value}}
+function render(){
+  const{d,s,dur,fl}=ctx(),e=s+Math.max(dur,1);let html="";
+  const by={};Object.keys(T).forEach(r=>(by[flr(r)]=by[flr(r)]||[]).push(r));
+  Object.keys(by).sort().forEach(f=>{
+    if(fl!==""&&+fl!==+f)return;
+    const rs=by[f].sort();let nf=0;
+    const tiles=rs.map(r=>{
+      const b=d>=1&&d<=5?busyUntil(r,d,s,e):null,free=b===null;if(free)nf++;
+      const sub=free?(dur?"free for "+dur/60+" h":"free now"):"busy from "+hm(b);
+      return `<div data-sel="${r}" class="room ${free?"free":"busy"}${hits.has(r)?" hit":""}${sel===r?" sel":""}"><b>${r}</b>${sub}<small><button class="chip${ac[r]?" on":""}" data-r="${r}">AC?</button></small></div>`}).join("");
+    html+=`<section class="floor"><h2>${FN[f]||"Floor "+f}<span>${nf} of ${rs.length} free</span></h2><div class="grid">${tiles}</div></section>`});
+  $("out").innerHTML=html||'<p class="note">No rooms on that floor.</p>';drawMap()}
+let sel=null,setAt=Date.now(),setSec=0,detKey="",ax,prevSel=null,prevFree=null,warned="";
+function beep(n,f){try{ax=ax||new(window.AudioContext||window.webkitAudioContext)();ax.resume();for(let i=0;i<n;i++){const o=ax.createOscillator(),g=ax.createGain(),t=ax.currentTime+i*.35;o.frequency.value=f;o.connect(g);g.connect(ax.destination);g.gain.setValueAtTime(.3,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);o.start(t);o.stop(t+.3)}}catch(e){}}
+function say(m,n,f){$("al").textContent=m;$("al").hidden=!m;if(n)beep(n,f);try{n&&navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
+const base=()=>{const[h,m]=$("time").value.split(":").map(Number);setSec=h*3600+m*60;setAt=Date.now()};
+const cs=()=>setSec+(Date.now()-setAt)/1000;
+const f12=m=>{const h=Math.floor(m/60),n=String(Math.round(m%60)).padStart(2,"0");return(h%12||12)+":"+n+(h<12?" AM":" PM")};
+const cd=s=>{s=Math.max(0,Math.floor(s));const p=x=>String(x).padStart(2,"0");return p(Math.floor(s/3600))+":"+p(Math.floor(s%3600/60))+":"+p(s%60)};
+function stat(r,d,m){
+  const o=d>=1&&d<=5?(T[r][d-1]||""):"",ps=[...o].map(c=>+c-1).sort((a,b)=>a-b);
+  const c=ps.find(p=>PS[p]<=m&&PE[p]>m);
+  if(c!==undefined){let e=PE[c];for(const p of ps)if(PS[p]<=e+10&&PE[p]>e)e=PE[p];return{free:false,t:e}}
+  const n=ps.find(p=>PS[p]>m);return{free:true,t:n===undefined?null:PS[n]}}
+function drawMap(){
+  const{d,s,dur}=ctx(),e=s+Math.max(dur,1),by={};
+  Object.keys(T).forEach(r=>(by[flr(r)]=by[flr(r)]||[]).push(r));
+  $("stack").innerHTML=Object.keys(by).sort().map(f=>`<div class="lvl" style="transform:translateZ(${f*70}px)"><em>${f==0?"G":"F"+f}</em>`+by[f].sort().map(r=>{const fr=d<1||d>5||busyUntil(r,d,s,e)===null;return `<button class="t ${fr?"free":"busy"}${sel===r?" sel":""}" data-sel="${r}" aria-label="${r}, ${fr?"free":"in class"}">${r.replace("IST ","")}</button>`}).join("")+"</div>").join("")}
+function det(){
+  if(!sel)return;
+  const d=+$("day").value,sec=cs(),st=stat(sel,d,sec/60),key=sel+st.free+st.t;
+  const big=st.t===null?"No more classes":cd(st.t*60-sec);
+  const left=st.t===null?null:st.t*60-sec;
+  if(prevSel!==sel)say(st.free?"✅ "+sel+" is free"+(st.t===null?" for the rest of the day.":" until "+f12(st.t)+"."):"⏳ "+sel+" is in class. You'll get an alert when it's free.",st.free?2:0,660);
+  else if(prevFree!==st.free)st.free?say("✅ "+sel+" is free now.",2,660):say("⏰ Time is over! A class is starting in "+sel+".",4,880);
+  else if(st.free&&left!==null&&left<=300&&warned!==sel+st.t){warned=sel+st.t;say("⚠️ Less than 5 minutes left in "+sel+".",1,520)}
+  prevSel=sel;prevFree=st.free;
+  if(key!==detKey){detKey=key;
+    const msg=st.free?(st.t===null?"free for the rest of the day":"until the next class at "+f12(st.t)):"until this room is free at "+f12(st.t);
+    const wa="📍 Heading to "+sel+". It's free "+(st.t===null?"for the rest of the day":"until "+f12(st.t))+". Come fast!";
+    $("det").innerHTML=`<b>${sel}</b> · ${st.free?"free now":"in class"}<div id="cd">${big}</div><div>${st.t===null?"":msg}</div>`+(st.free?`<a class="squad" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(wa)}">Call the Squad on WhatsApp</a>`:"")}
+  else $("cd").textContent=big}
+document.onclick=e=>{
+  const c=e.target.closest(".chip");if(c){ac[c.dataset.r]=!ac[c.dataset.r];render();return}
+  const t=e.target.closest("[data-sel]");if(t){beep(0,0);prevSel=null;sel=t.dataset.sel;detKey="";render();det();$("det").scrollIntoView({block:"nearest",behavior:"smooth"})}};
+$("time").addEventListener("change",()=>{base();detKey=""});$("day").addEventListener("change",()=>{detKey=""});
+setInterval(det,1000);base();
+["day","time","fl","dur"].forEach(i=>$(i).onchange=()=>{hits=new Set();$("ans").textContent="";render()});
+const FW={ground:0,"1st":1,first:1,"2nd":2,second:2,"3rd":3,third:3,"4th":4,fourth:4,"5th":5,fifth:5};
+function localParse(t){t=t.toLowerCase();const o={ac:/\bac\b|air.?con/.test(t),floor:null,minutes:60};
+  for(const k in FW)if(t.includes(k))o.floor=FW[k];
+  const h=t.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/),m=t.match(/(\d+)\s*(?:minutes?|mins?)/);
+  if(h)o.minutes=Math.round(h[1]*60);else if(m)o.minutes=+m[1];return o}
+async function parse(t){
+  try{const sample=await claude.use("sample");
+    if(sample){const j=await sample.json('Extract room-search filters from this request. Reply with JSON only: {"ac":boolean,"floor":number|null (0=ground),"minutes":number (duration, default 60)}. Request: '+t);
+      if(j&&typeof j.minutes==="number")return j}}catch(e){}
+  return localParse(t)}
+$("go").onclick=async()=>{
+  const t=$("q").value.trim();if(!t)return;$("ans").textContent="Reading your request…";
+  const p=await parse(t),{d,s}=ctx(),e=s+p.minutes;
+  $("dur").value=[60,120,180].includes(p.minutes)?p.minutes:0;
+  $("fl").value=p.floor===null||p.floor===undefined?"":p.floor;
+  let list=Object.keys(T).filter(r=>(p.floor==null||flr(r)===p.floor)&&(d<1||d>5||busyUntil(r,d,s,e)===null));
+  let note="";
+  if(p.ac){const a=list.filter(r=>ac[r]);if(a.length||Object.values(ac).some(Boolean))list=a;else note=" AC status isn't in the timetables, so I ignored the AC filter. Tap “AC?” on rooms you know are AC.";}
+  hits=new Set(list);
+  $("ans").innerHTML=list.length?`<b>${list.length} room${list.length>1?"s":""}</b> free ${hm(s)}–${hm(e)} (${DN[d]}): ${list.join(", ")}.${note}`:"No room matches for that whole period. Try a shorter time or another floor."+note;
+  render()};
+$("q").onkeydown=e=>{if(e.key==="Enter")$("go").click()};
+render();
+</script></body></html>
